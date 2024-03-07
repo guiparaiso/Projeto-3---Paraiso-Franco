@@ -46,7 +46,7 @@ def main():
         print("-------------------------")
         br = False
         for img in list_imgs:
-            # print("enviando imagens {}" .format(img))
+            # print("enviando imagens {}" .format(img)
             if br:
                 break
             x= int(len(img)/140)
@@ -55,13 +55,14 @@ def main():
                     sending_bytes = img[i*140:(i+1)*140]
                 else:
                     sending_bytes = img[i*140:]
+                pct_waiting = int.to_bytes(x-i, byteorder='big')
                 tamanho = int.to_bytes(len(sending_bytes), byteorder='big')
-                pct = int.to_bytes(i+1, byteorder='big')
-                protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + pct +  b'\x00' +  b'\x00' + b'\x00' + b'\x00'
+                pct_sent = int.to_bytes(i+1, byteorder='big')
+                protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + pct_sent + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
                 txBuffer = protocol + sending_bytes + eop
                 com1.sendData(txBuffer)
                 time.sleep(1)
-                print("enviou {} e o tipo do bit é {}" .format(txBuffer[:10],type(txBuffer[6])))
+                print("o head é : {}, mandei : {} e falta mandar {} pacotes" .format(txBuffer[:10],txBuffer[5],txBuffer[6]))
                 print("-------------------------")
                 x =time.time()
                 s = 0
