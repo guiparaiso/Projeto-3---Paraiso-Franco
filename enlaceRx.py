@@ -61,7 +61,6 @@ class RX(object):
         return(b)
 
     def getBuffer(self, nData):
-        print('getBuffer entrou')
         self.threadPause()
         b           = self.buffer[0:nData]
         self.buffer = self.buffer[nData:]

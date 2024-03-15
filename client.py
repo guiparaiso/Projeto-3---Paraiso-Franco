@@ -26,7 +26,7 @@ import logging.handlers
 #use uma das 3 opcoes para atribuir à variável a porta usada
 #serialName = "/dev/ttyACM0"           # Ubuntu (variacao de)
 #serialName = "/dev/tty.usbmodem1411" # Mac    (variacao de)
-serialName = "COM5"                  # Windows(variacao de)
+serialName = "COM6"                  # Windows(variacao de)
 
 def setup_logger(name, log_file, level=logging.INFO):
     """Função para configurar e retornar um logger."""
@@ -55,9 +55,7 @@ def main():
         img1 = "img1.jpeg"
         img2 = "img2.jpeg"
         list_imgs = [open(img1,'rb').read(), open(img2,'rb').read()]
-        eop = b'\xAA\xBB\xCC\xDD'
-        print("o eop é {} e o seu len é : {}" .format(eop, len(eop)))
-        
+        eop = b'\xAA\xBB\xCC\xDD'        
         #Se chegamos até aqui, a comunicação foi aberta com sucesso. Faça um print para informar.
         print("Abriu a comunicação")
         print("-------------------------")
@@ -69,8 +67,10 @@ def main():
             x= int(len(img)/140)
 
             if img == list_imgs[0]:
+                nmbr = 1
                 logger_imagem1.info(f'Enviando imagem 1')
             else:
+                nmbr = 2
                 logger_imagem2.info(f'Enviando imagem 2')
 
             for i in range(x+1):
@@ -81,21 +81,17 @@ def main():
                 pct_waiting = int.to_bytes(x-i, length=1, byteorder='big')
                 tamanho = int.to_bytes(len(sending_bytes), length=1, byteorder='big')
                 pct_sent = int.to_bytes(i+1, length=1, byteorder='big')
-                print('pct waiting')
-                print(pct_waiting)
-                print('pct sent')
-                print(pct_sent)
                 protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + pct_sent + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
                 txBuffer = protocol + sending_bytes + eop
                 com1.sendData(txBuffer)
                 time.sleep(1)
-                print("o head é : {}, mandei : {} e falta mandar {} pacotes" .format(txBuffer[:10],txBuffer[5],txBuffer[6]))
+                print(" Imagem {} mandei : {} pacotes e falta mandar {} " .format(nmbr,txBuffer[5],txBuffer[6]))
                 print("-------------------------")
                 y = time.time()
                 s = 0
                 while time.time() - y < 10 and com1.rx.getIsEmpty():
                     if s == 0:
-                        print("esperando resposta")
+                        print("Esperando resposta")
                         print("-------------------------")
                         s=1
                 if com1.rx.getIsEmpty():
@@ -104,11 +100,17 @@ def main():
                     break
                 else:
                     rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
-                    while rxBuffer[4] != 1:
+                    while rxBuffer[4] == 0:
                         if img == list_imgs[0]:
-                            logger_imagem1.info(f'Pacote número {pct_sent} da imagem 1 enviado com problema ')
+                            msg = f'Pacote numero {pct_sent} da imagem 1 enviado com problema '
+                            logger_imagem1.info(msg)
+                            print(msg)
                         else:
-                            logger_imagem2.info(f'Pacote número {pct_sent} da imagem 2 enviado com problema')
+                            msg = f'Pacote numero {pct_sent} da imagem 2 enviado com problema '
+                            logger_imagem2.info(msg)
+                            print(msg)
+                        print("--------------------------------")
+                        print("Reenviando pacote")
                         com1.sendData(txBuffer)
                         time.sleep(1)
                         rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
