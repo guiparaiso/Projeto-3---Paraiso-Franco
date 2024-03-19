@@ -52,11 +52,10 @@ def main():
         com1 = enlace(serialName)
         com1.enable()
         
-        img1 = "img2.jpeg"
-        img2 = "img1.jpeg"
+        img1 = "img1.jpeg"
+        img2 = "img2.jpeg"
         list_imgs = [open(img1,'rb').read(), open(img2,'rb').read()]
         eop = b'\xAA\xBB\xCC\xDD'
-        print("o eop é {} e o seu len é : {}" .format(eop, len(eop)))
         
         #Se chegamos até aqui, a comunicação foi aberta com sucesso. Faça um print para informar.
         print("Abriu a comunicação")
@@ -69,8 +68,10 @@ def main():
             x= int(len(img)/140)
 
             if img == list_imgs[0]:
+                nmbr = 1
                 logger_imagem1.info(f'Enviando imagem 1')
             else:
+                nmbr=2
                 logger_imagem2.info(f'Enviando imagem 2')
 
             for i in range(x+1):
@@ -81,15 +82,11 @@ def main():
                 pct_waiting = int.to_bytes(x-i, length=1, byteorder='big')
                 tamanho = int.to_bytes(len(sending_bytes), length=1, byteorder='big')
                 pct_sent = int.to_bytes(i+1, length=1, byteorder='big')
-                print('pct waiting')
-                print(pct_waiting)
-                print('pct sent')
-                print(pct_sent)
                 protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + pct_sent + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
                 txBuffer = protocol + sending_bytes + eop
                 com1.sendData(txBuffer)
                 time.sleep(1)
-                print("o head é : {}, mandei : {} e falta mandar {} pacotes" .format(txBuffer[:10],txBuffer[5],txBuffer[6]))
+                print("Da imagem {}, mandei : {} e falta mandar {} pacotes, cada pacote  com : {} bytes" .format(nmbr,txBuffer[5],txBuffer[6],txBuffer[3]))
                 print("-------------------------")
                 y = time.time()
                 s = 0
@@ -102,17 +99,28 @@ def main():
                     print('Time out')
                     br = True
                     break
-                else:
-                    rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
-                    while rxBuffer[4] == 0:
-                        if img == list_imgs[0]:
-                            logger_imagem1.info(f'Pacote numero {i+1} da imagem 1 enviado com problema ')
-                        else:
-                            logger_imagem2.info(f'Pacote numero {i+1} da imagem 2 enviado com problema')
-                        com1.sendData(txBuffer)
-                        time.sleep(1)
+                rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+                print(" RxBuffer : {}".format(rxBuffer))
+                ss=0
+                y = time.time()
+                while time.time() - y < 10 and rxBuffer != b'\x00':
+                    if not com1.rx.getIsEmpty():
+                        if rxBuffer[4] == 0:
+                            print("------------------------- \n ENTROU \n-------------------------")
+                            if img == list_imgs[0]:
+                                msg = f'Pacote numero {i+1} da imagem 1 enviado com problema '
+                                logger_imagem1.info(msg)
+                                print(msg)
+                            else:
+                                msg = f'Pacote numero {i+1} da imagem 2 enviado com problema'
+                                logger_imagem2.info(msg)
+                                print(msg)
+                            print("Reenviando {} pacote" .format(rxBuffer[5]))
+                            protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + rxBuffer[5].to_bytes(1,byteorder='big') + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
+                            txBuffer = protocol + img[rxBuffer[5]*140:(rxBuffer[5]+1)*140]+ eop
+                            com1.sendData(txBuffer)
+                            time.sleep(1)
                         rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
-                      
             
         # Encerra comunicação
         print("-------------------------")
