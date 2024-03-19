@@ -26,7 +26,7 @@ import logging.handlers
 #use uma das 3 opcoes para atribuir à variável a porta usada
 #serialName = "/dev/ttyACM0"           # Ubuntu (variacao de)
 #serialName = "/dev/tty.usbmodem1411" # Mac    (variacao de)
-serialName = "COM5"                  # Windows(variacao de)
+serialName = "COM7"                  # Windows(variacao de)
 
 def setup_logger(name, log_file, level=logging.INFO):
     """Função para configurar e retornar um logger."""
@@ -62,6 +62,7 @@ def main():
         print("-------------------------")
         br = False
         for img in list_imgs:
+            i=0
             # print("enviando imagens {}" .format(img)
             if br:
                 break
@@ -74,7 +75,7 @@ def main():
                 nmbr=2
                 logger_imagem2.info(f'Enviando imagem 2')
 
-            for i in range(x+1):
+            while i < (x+1):
                 if i != x:
                     sending_bytes = img[i*140:(i+1)*140]
                 else:
@@ -84,8 +85,15 @@ def main():
                 pct_sent = int.to_bytes(i+1, length=1, byteorder='big')
                 protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + pct_sent + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
                 txBuffer = protocol + sending_bytes + eop
+                # y= time.time()
                 com1.sendData(txBuffer)
-                time.sleep(1)
+                time.sleep(.5)
+                # if time.time() - y > 10:
+                #     print('Time out')
+                #     br = True
+                #     break
+                # if not com1.rx.getIsEmpty():
+                #     break
                 print("Da imagem {}, mandei : {} e falta mandar {} pacotes, cada pacote  com : {} bytes" .format(nmbr,txBuffer[5],txBuffer[6],txBuffer[3]))
                 print("-------------------------")
                 y = time.time()
@@ -108,19 +116,28 @@ def main():
                         if rxBuffer[4] == 0:
                             print("------------------------- \n ENTROU \n-------------------------")
                             if img == list_imgs[0]:
-                                msg = f'Pacote numero {i+1} da imagem 1 enviado com problema '
+                                msg = 'Pacote numero {} da imagem 1 enviado com problema '.format(rxBuffer[5])
                                 logger_imagem1.info(msg)
                                 print(msg)
                             else:
-                                msg = f'Pacote numero {i+1} da imagem 2 enviado com problema'
+                                msg = 'Pacote numero {} da imagem 2 enviado com problema '.format(rxBuffer[5])
                                 logger_imagem2.info(msg)
                                 print(msg)
                             print("Reenviando {} pacote" .format(rxBuffer[5]))
-                            protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x00'  + rxBuffer[5].to_bytes(1,byteorder='big') + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
-                            txBuffer = protocol + img[rxBuffer[5]*140:(rxBuffer[5]+1)*140]+ eop
+                            protocol = b'\x01' + b'\x00' + b'\x00' + tamanho + b'\x01'  + rxBuffer[5].to_bytes(1,byteorder='big') + pct_waiting  +  b'\x00' + b'\x00' + b'\x00'
+                            txBuffer = protocol + img[(rxBuffer[5]-1)*140:(rxBuffer[5])*140]+ eop
                             com1.sendData(txBuffer)
-                            time.sleep(1)
+                            time.sleep(.5)
+                            i=rxBuffer[5]
+                        else: 
+                            i+=1
                         rxBuffer, nRx = com1.getData(com1.rx.getBufferLen())
+            if i == 42:
+                txBuffer = protocol + sending_bytes + eop
+                com1.sendData(txBuffer)
+                time.sleep(1)
+                break
+                
             
         # Encerra comunicação
         print("-------------------------")
